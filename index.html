@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen text-gray-100 px-4">
+
+    <div class="w-full max-w-md bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 text-center">
+        <div class="mb-8">
+            <img src="https://i.ibb.co/gbCxqN6V/1000068301.png" alt="Logo Tacos el Colorado" class="mx-auto w-24 h-24 object-contain mb-3 rounded-full shadow-lg bg-gray-700 p-1">
+            <h1 class="text-3xl font-extrabold tracking-tight text-white">Tacos el Colorado</h1>
+            <p class="text-sm text-gray-400 mt-2">Sistema de Gestión para el Establecimiento</p>
+        </div>
+
+        <hr class="border-gray-700 my-6">
+
+        <button id="btn-google" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3 px-4 rounded-xl transition duration-200 shadow-md cursor-pointer">
+            <svg class="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5.04c1.65 0 3.14.57 4.3 1.69l3.22-3.22C17.56 1.64 14.97 1 12 1 7.35 1 3.4 3.65 1.44 7.51l3.79 2.94C6.12 7.09 8.83 5.04 12 5.04z"/>
+                <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.42 3.57v2.97h3.91c2.28-2.1 3.54-5.19 3.54-8.69z"/>
+                <path fill="#FBBC05" d="M5.23 14.53c-.24-.71-.37-1.47-.37-2.26s.13-1.55.37-2.26L1.44 7.07C.52 8.92 0 11 0 13.13s.52 4.21 1.44 6.06l3.79-2.94z"/>
+                <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.91-2.97c-1.08.72-2.48 1.16-4.05 1.16-3.17 0-5.88-2.05-6.84-4.99l-3.79 2.94C3.4 19.35 7.35 23 12 23z"/>
+            </svg>
+            Iniciar sesión con Google
+        </button>
+
+        <p id="status-msg" class="text-sm text-gray-400 mt-4"></p>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const statusMsg = document.getElementById('status-msg');
+        const btnGoogle = document.getElementById('btn-google');
+
+        // Si ya hay una sesión activa (por ejemplo, venimos de regreso del login de Google),
+        // revisamos el rol y decidimos a dónde mandar a la persona.
+        async function revisarSesion() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) return; // nadie ha iniciado sesión, se queda en el login
+
+            statusMsg.textContent = "Verificando tu cuenta...";
+            btnGoogle.disabled = true;
+
+            const { data: perfil, error } = await supabaseClient
+                .from('perfiles')
+                .select('rol')
+                .eq('id', user.id)
+                .single();
+
+            if (error || !perfil) {
+                statusMsg.textContent = "No se pudo cargar tu perfil. Intenta de nuevo.";
+                btnGoogle.disabled = false;
+                return;
+            }
+
+            if (perfil.rol === 'invitado') {
+                statusMsg.textContent = "Tu cuenta está pendiente de aprobación por el administrador.";
+                statusMsg.classList.add('text-yellow-400');
+                // Cerramos la sesión para que pueda reintentar con otra cuenta si quiere
+                await supabaseClient.auth.signOut();
+                btnGoogle.disabled = false;
+            } else {
+                statusMsg.textContent = "¡Bienvenido! Redirigiendo...";
+                window.location.href = 'inicio.html';
+            }
+        }
+
+        btnGoogle.addEventListener('click', async () => {
+            statusMsg.textContent = "Conectando con Google...";
+            statusMsg.classList.remove('text-red-400', 'text-yellow-400');
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin + window.location.pathname }
+            });
+            if (error) {
+                console.error('Error al conectar:', error.message);
+                statusMsg.textContent = "Error: " + error.message;
+                statusMsg.classList.add('text-red-400');
+            }
+        });
+
+        revisarSesion();
+    </script>
+</body>
+</html>
