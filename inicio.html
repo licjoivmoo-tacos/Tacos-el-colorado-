@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Mesas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 min-h-screen text-gray-100">
+
+    <!-- Header con logo y menú oculto -->
+    <div class="relative flex flex-col items-center pt-6 pb-4 border-b border-gray-800">
+        <button id="btn-logo" class="focus:outline-none">
+            <img src="https://i.ibb.co/gbCxqN6V/1000068301.png" alt="Tacos el Colorado"
+                 class="w-16 h-16 object-contain rounded-full shadow-lg bg-gray-800 p-1 mx-auto">
+        </button>
+        <h1 class="text-lg font-bold mt-2">Tacos el Colorado</h1>
+
+        <!-- Menú desplegable oculto -->
+        <div id="menu-oculto" class="hidden absolute top-full mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden z-20">
+            <button data-vista="mesas" class="menu-item w-full text-left px-4 py-3 hover:bg-gray-700 transition flex items-center gap-2">
+                🍽️ Mesas
+            </button>
+            <button data-vista="caja" class="menu-item w-full text-left px-4 py-3 hover:bg-gray-700 transition flex items-center gap-2 border-t border-gray-700">
+                💰 Caja
+            </button>
+            <button data-vista="administrador" class="menu-item w-full text-left px-4 py-3 hover:bg-gray-700 transition flex items-center gap-2 border-t border-gray-700">
+                ⚙️ Administrador
+            </button>
+        </div>
+    </div>
+
+    <!-- Vista: Mesas -->
+    <div id="vista-mesas" class="px-4 py-6">
+        <h2 class="text-center text-gray-400 text-sm uppercase tracking-wide mb-4">Selecciona una mesa</h2>
+        <div id="grid-mesas" class="grid grid-cols-3 gap-3 max-w-md mx-auto"></div>
+    </div>
+
+    <!-- Vista: Próximamente (Caja / Administrador) -->
+    <div id="vista-proximamente" class="hidden px-4 py-16 text-center">
+        <p id="titulo-proximamente" class="text-2xl font-bold mb-2"></p>
+        <p class="text-gray-400">Esta sección está en construcción. Muy pronto podrás usarla.</p>
+        <button id="btn-volver-mesas" class="mt-6 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold py-2 px-6 rounded-xl border border-gray-700 transition">
+            ← Volver a Mesas
+        </button>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- Verificación de sesión: si nadie inició sesión, regresa al login ---
+        async function verificarSesion() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            const { data: perfil } = await supabaseClient
+                .from('perfiles').select('rol').eq('id', user.id).single();
+            if (!perfil || perfil.rol === 'invitado') {
+                window.location.href = 'index.html';
+            }
+        }
+        verificarSesion();
+
+        // --- Menú oculto detrás del logo ---
+        const btnLogo = document.getElementById('btn-logo');
+        const menuOculto = document.getElementById('menu-oculto');
+
+        btnLogo.addEventListener('click', () => {
+            menuOculto.classList.toggle('hidden');
+        });
+
+        // Cierra el menú si tocas fuera de él
+        document.addEventListener('click', (e) => {
+            if (!btnLogo.contains(e.target) && !menuOculto.contains(e.target)) {
+                menuOculto.classList.add('hidden');
+            }
+        });
+
+        // --- Navegación entre vistas ---
+        const vistaMesas = document.getElementById('vista-mesas');
+        const vistaProximamente = document.getElementById('vista-proximamente');
+        const tituloProximamente = document.getElementById('titulo-proximamente');
+
+        document.querySelectorAll('.menu-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const seccion = btn.dataset.vista;
+                menuOculto.classList.add('hidden');
+
+                if (seccion === 'mesas') {
+                    vistaMesas.classList.remove('hidden');
+                    vistaProximamente.classList.add('hidden');
+                } else {
+                    vistaMesas.classList.add('hidden');
+                    vistaProximamente.classList.remove('hidden');
+                    tituloProximamente.textContent = seccion === 'caja' ? '💰 Caja' : '⚙️ Administrador';
+                }
+            });
+        });
+
+        document.getElementById('btn-volver-mesas').addEventListener('click', () => {
+            vistaProximamente.classList.add('hidden');
+            vistaMesas.classList.remove('hidden');
+        });
+
+        // --- Generar las 11 mesas ---
+        const gridMesas = document.getElementById('grid-mesas');
+        const TOTAL_MESAS = 11;
+
+        for (let i = 1; i <= TOTAL_MESAS; i++) {
+            const mesaBtn = document.createElement('button');
+            mesaBtn.className = "aspect-square bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-2xl flex flex-col items-center justify-center gap-1 transition active:scale-95";
+            mesaBtn.innerHTML = `
+                <span class="text-3xl">🍽️</span>
+                <span class="text-sm font-semibold text-gray-300">Mesa ${i}</span>
+            `;
+            mesaBtn.addEventListener('click', () => {
+                window.location.href = `servicio.html?mesa=${i}`;
+            });
+            gridMesas.appendChild(mesaBtn);
+        }
+    </script>
+</body>
+</html>
