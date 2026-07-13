@@ -27,7 +27,7 @@
             <button id="btn-abrir-taco" class="bg-yellow-700 hover:bg-yellow-600 rounded-2xl py-4 font-bold flex flex-col items-center gap-1">
                 <span class="text-2xl">🌮</span> Nuevo plato
             </button>
-            <button id="btn-abrir-bebida" class="bg-blue-700 hover:bg-blue-600 rounded-2xl py-4 font-bold flex flex-col items-center gap-1">
+            <button id="btn-abrir-bebida" class="bg-blue-700 hover:bg-green-600 rounded-2xl py-4 font-bold flex flex-col items-center gap-1">
                 <span class="text-2xl">🥤</span> Agregar bebida
             </button>
         </div>
@@ -406,7 +406,7 @@
 
         function resetBebidaSel() {
             bebidaSel = { tipo: null, tamano: null, sabor: null, cantidad: 1 };
-            document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.classList.remove('bg-blue-600'));
+            document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.classList.remove('bg-green-600'));
             document.getElementById('opciones-tamano').classList.add('hidden');
             document.getElementById('opciones-sabor').classList.add('hidden');
             document.getElementById('bebida-cantidad').textContent = '1';
@@ -416,8 +416,8 @@
         document.querySelectorAll('.btn-bebida-tipo').forEach(btn => btn.addEventListener('click', () => {
             const tipo = btn.dataset.bebida;
             bebidaSel = { tipo, tamano: null, sabor: null, cantidad: bebidaSel.cantidad };
-            document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.classList.remove('bg-blue-600'));
-            btn.classList.add('bg-blue-600');
+            document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.classList.remove('bg-green-600'));
+            btn.classList.add('bg-green-600');
 
             const config = opcionesBebida[tipo];
             const contTamano = document.getElementById('botones-tamano');
@@ -435,8 +435,8 @@
                     b.addEventListener('click', () => {
                         bebidaSel.tamano = t.id;
                         bebidaSel.sabor = null;
-                        document.querySelectorAll('.btn-tamano').forEach(x => x.classList.remove('bg-blue-600'));
-                        b.classList.add('bg-blue-600');
+                        document.querySelectorAll('.btn-tamano').forEach(x => x.classList.remove('bg-green-600'));
+                        b.classList.add('bg-green-600');
 
                         if (tipo === 'refresco') {
                             contSabor.innerHTML = '';
@@ -447,8 +447,8 @@
                                 sb.className = 'btn-sabor bg-gray-700 rounded-xl py-2';
                                 sb.addEventListener('click', () => {
                                     bebidaSel.sabor = s;
-                                    document.querySelectorAll('.btn-sabor').forEach(x => x.classList.remove('bg-blue-600'));
-                                    sb.classList.add('bg-blue-600');
+                                    document.querySelectorAll('.btn-sabor').forEach(x => x.classList.remove('bg-green-600'));
+                                    sb.classList.add('bg-green-600');
                                     validarBebida();
                                 });
                                 contSabor.appendChild(sb);
@@ -470,8 +470,8 @@
                     sb.className = 'btn-sabor bg-gray-700 rounded-xl py-2';
                     sb.addEventListener('click', () => {
                         bebidaSel.sabor = s.id;
-                        document.querySelectorAll('.btn-sabor').forEach(x => x.classList.remove('bg-blue-600'));
-                        sb.classList.add('bg-blue-600');
+                        document.querySelectorAll('.btn-sabor').forEach(x => x.classList.remove('bg-green-600'));
+                        sb.classList.add('bg-green-600');
                         validarBebida();
                     });
                     contSabor.appendChild(sb);
