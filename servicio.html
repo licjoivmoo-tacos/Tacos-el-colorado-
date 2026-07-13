@@ -398,4 +398,136 @@
         // --- Panel de bebida ---
         const panelBebida = document.getElementById('panel-bebida');
         document.getElementById('btn-abrir-bebida').addEventListener('click', () => {
-            r
+            resetBebidaSel();
+            panelBebida.classList.remove('hidden');
+            panelTaco.classList.add('hidden');
+        });
+        document.getElementById('btn-cancelar-bebida').addEventListener('click', () => panelBebida.classList.add('hidden'));
+
+        function resetBebidaSel() {
+            bebidaSel = { tipo: null, tamano: null, sabor: null, cantidad: 1 };
+            document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.classList.remove('bg-blue-600'));
+            document.getElementById('opciones-tamano').classList.add('hidden');
+            document.getElementById('opciones-sabor').classList.add('hidden');
+            document.getElementById('bebida-cantidad').textContent = '1';
+            document.getElementById('btn-guardar-bebida').disabled = true;
+        }
+
+        document.querySelectorAll('.btn-bebida-tipo').forEach(btn => btn.addEventListener('click', () => {
+            const tipo = btn.dataset.bebida;
+            bebidaSel = { tipo, tamano: null, sabor: null, cantidad: bebidaSel.cantidad };
+            document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.classList.remove('bg-blue-600'));
+            btn.classList.add('bg-blue-600');
+
+            const config = opcionesBebida[tipo];
+            const contTamano = document.getElementById('botones-tamano');
+            const contSabor = document.getElementById('botones-sabor');
+            contTamano.innerHTML = '';
+            contSabor.innerHTML = '';
+
+            if (config.tamanos) {
+                document.getElementById('opciones-tamano').classList.remove('hidden');
+                config.tamanos.forEach(t => {
+                    const b = document.createElement('button');
+                    b.textContent = t.label;
+                    b.className = 'btn-tamano bg-gray-700 rounded-xl py-2';
+                    b.dataset.tamano = t.id;
+                    b.addEventListener('click', () => {
+                        bebidaSel.tamano = t.id;
+                        bebidaSel.sabor = null;
+                        document.querySelectorAll('.btn-tamano').forEach(x => x.classList.remove('bg-blue-600'));
+                        b.classList.add('bg-blue-600');
+
+                        if (tipo === 'refresco') {
+                            contSabor.innerHTML = '';
+                            document.getElementById('opciones-sabor').classList.remove('hidden');
+                            saboresRefresco[t.id].forEach(s => {
+                                const sb = document.createElement('button');
+                                sb.textContent = s;
+                                sb.className = 'btn-sabor bg-gray-700 rounded-xl py-2';
+                                sb.addEventListener('click', () => {
+                                    bebidaSel.sabor = s;
+                                    document.querySelectorAll('.btn-sabor').forEach(x => x.classList.remove('bg-blue-600'));
+                                    sb.classList.add('bg-blue-600');
+                                    validarBebida();
+                                });
+                                contSabor.appendChild(sb);
+                            });
+                        }
+                        validarBebida();
+                    });
+                    contTamano.appendChild(b);
+                });
+            } else {
+                document.getElementById('opciones-tamano').classList.add('hidden');
+            }
+
+            if (config.sabores) {
+                document.getElementById('opciones-sabor').classList.remove('hidden');
+                config.sabores.forEach(s => {
+                    const sb = document.createElement('button');
+                    sb.textContent = s.label;
+                    sb.className = 'btn-sabor bg-gray-700 rounded-xl py-2';
+                    sb.addEventListener('click', () => {
+                        bebidaSel.sabor = s.id;
+                        document.querySelectorAll('.btn-sabor').forEach(x => x.classList.remove('bg-blue-600'));
+                        sb.classList.add('bg-blue-600');
+                        validarBebida();
+                    });
+                    contSabor.appendChild(sb);
+                });
+            } else if (tipo !== 'refresco') {
+                document.getElementById('opciones-sabor').classList.add('hidden');
+            }
+
+            validarBebida();
+        }));
+
+        function validarBebida() {
+            const necesitaTamano = opcionesBebida[bebidaSel.tipo]?.tamanos;
+            const necesitaSabor = opcionesBebida[bebidaSel.tipo]?.sabores || bebidaSel.tipo === 'refresco';
+            const ok = bebidaSel.tipo &&
+                (!necesitaTamano || bebidaSel.tamano) &&
+                (!necesitaSabor || bebidaSel.sabor);
+            document.getElementById('btn-guardar-bebida').disabled = !ok;
+        }
+
+        document.getElementById('bebida-menos').addEventListener('click', () => {
+            if (bebidaSel.cantidad > 1) bebidaSel.cantidad--;
+            document.getElementById('bebida-cantidad').textContent = bebidaSel.cantidad;
+        });
+        document.getElementById('bebida-mas').addEventListener('click', () => {
+            bebidaSel.cantidad++;
+            document.getElementById('bebida-cantidad').textContent = bebidaSel.cantidad;
+        });
+
+        document.getElementById('btn-guardar-bebida').addEventListener('click', async () => {
+            const fila = {
+                pedido_id: pedidoActual.id,
+                tipo: bebidaSel.tipo,
+                tamano: bebidaSel.tamano,
+                sabor: bebidaSel.sabor,
+                cantidad: bebidaSel.cantidad,
+                precio_unitario: precioBebida(bebidaSel.tipo, bebidaSel.tamano)
+            };
+            const { error } = await supabaseClient.from('bebidas').insert(fila);
+            if (error) { alert('Error: ' + error.message); return; }
+
+            panelBebida.classList.add('hidden');
+            cargarPedidoCompleto();
+        });
+
+        // --- Enviar a cocina ---
+        document.getElementById('btn-enviar-cocina').addEventListener('click', async () => {
+            const { error } = await supabaseClient.from('pedidos')
+                .update({ estado: 'enviado' })
+                .eq('id', pedidoActual.id);
+            if (error) { alert('Error al enviar: ' + error.message); return; }
+            alert('¡Pedido enviado a cocina!');
+            window.location.href = 'inicio.html';
+        });
+
+        init();
+    </script>
+</body>
+</html>
