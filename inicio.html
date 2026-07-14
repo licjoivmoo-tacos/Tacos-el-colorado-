@@ -123,6 +123,17 @@
             });
             gridMesas.appendChild(mesaBtn);
         }
+        // --- Cuadro extra: Para llevar ---
+        const paraLlevarBtn = document.createElement('button');
+        paraLlevarBtn.className = "aspect-square bg-yellow-900 hover:bg-yellow-800 border border-yellow-700 rounded-2xl flex flex-col items-center justify-center gap-1 transition active:scale-95";
+        paraLlevarBtn.innerHTML = `
+            <span class="text-3xl">🚚</span>
+            <span class="text-sm font-semibold text-yellow-200">Para llevar</span>
+        `;
+        paraLlevarBtn.addEventListener('click', () => {
+            window.location.href = 'servicio.html';
+        });
+        gridMesas.appendChild(paraLlevarBtn);
     </script>
 </body>
 </html>
