@@ -628,7 +628,34 @@
             if (error) { alert('Error: ' + error.message); return; }
 
             pedidoActual.estado = 'cuenta_pedida';
-            alert('Cuenta pedida. Espera a que caja confirme el cobro.');
+
+            const { data: platosPedido } = await supabaseClient.from('platos')
+                .select('*, tacos(*)').eq('pedido_id', pedidoActual.id);
+            const { data: bebidasPedido } = await supabaseClient.from('bebidas')
+                .select('*').eq('pedido_id', pedidoActual.id);
+
+            let cantidadTacos = 0, total = 0;
+            (platosPedido || []).forEach(p => (p.tacos || []).forEach(t => {
+                cantidadTacos += t.cantidad;
+                total += t.precio_unitario * t.cantidad;
+            }));
+            let cantidadBebidas = 0;
+            (bebidasPedido || []).forEach(b => {
+                cantidadBebidas += b.cantidad;
+                total += b.precio_unitario * b.cantidad;
+            });
+
+            const { data: perfilMesero } = await supabaseClient
+                .from('perfiles').select('nombre_completo').eq('id', pedidoActual.mesero_id).single();
+
+            mostrarTicket({
+                origen: numeroMesa ? `Mesa ${numeroMesa}` : 'Para llevar',
+                mesero: perfilMesero ? perfilMesero.nombre_completo : 'Desconocido',
+                cantidadTacos,
+                cantidadBebidas,
+                total
+            });
+
             cargarPedidoCompleto();
         });
 
