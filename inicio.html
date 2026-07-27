@@ -37,7 +37,7 @@
         <div id="grid-mesas" class="grid grid-cols-3 gap-3 max-w-md mx-auto"></div>
     </div>
 
-    <!-- Vista: Próximamente (Caja / Administrador) -->
+    <!-- Vista: Próximamente (Caja) -->
     <div id="vista-proximamente" class="hidden px-4 py-16 text-center">
         <p id="titulo-proximamente" class="text-2xl font-bold mb-2"></p>
         <p class="text-gray-400">Esta sección está en construcción. Muy pronto podrás usarla.</p>
@@ -65,11 +65,20 @@
                 return;
             }
 
+            // Los cocineros no usan esta pantalla, van directo a la suya
+            if (perfil.rol === 'cocinero') {
+                window.location.href = 'cocina-menu.html';
+                return;
+            }
+
             // Mostrar opciones del menú según el rol
-            if (perfil.rol === 'cajero' || perfil.rol === 'administrador') {
+            const puedeVerCaja = ['cajero', 'administrador', 'superadministrador'].includes(perfil.rol);
+            const puedeVerAdmin = ['administrador', 'superadministrador'].includes(perfil.rol);
+
+            if (puedeVerCaja) {
                 document.getElementById('item-caja').classList.remove('hidden');
             }
-            if (perfil.rol === 'administrador') {
+            if (puedeVerAdmin) {
                 document.getElementById('item-admin').classList.remove('hidden');
             }
         }
@@ -105,13 +114,18 @@
                     return;
                 }
 
+                if (seccion === 'caja') {
+                    window.location.href = 'caja.html';
+                    return;
+                }
+
                 if (seccion === 'mesas') {
                     vistaMesas.classList.remove('hidden');
                     vistaProximamente.classList.add('hidden');
                 } else {
                     vistaMesas.classList.add('hidden');
                     vistaProximamente.classList.remove('hidden');
-                    tituloProximamente.textContent = seccion === 'caja' ? '💰 Caja' : '⚙️ Administrador';
+                    tituloProximamente.textContent = '💰 Caja';
                 }
             });
         });
