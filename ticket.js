@@ -1,48 +1,36 @@
-// ticket.js
-// Muestra un resumen tipo "ticket digital" a pantalla completa cuando se pide la cuenta.
-// Para cambiar el diseño o la información mostrada, solo se edita ESTE archivo.
-
 function mostrarTicket(datos) {
-    // datos = { origen, mesero, cantidadTacos, cantidadBebidas, total }
-
     const overlay = document.createElement('div');
-    overlay.id = 'ticket-overlay';
-    overlay.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 px-4';
+    overlay.style.cssText = 'position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    const tacosLineas = Object.entries(datos.tacosPorTipo || {})
+        .filter(([_, cant]) => cant > 0)
+        .map(([tipo, cant]) => `<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;"><span style="text-transform:capitalize;">${tipo}</span><span>${cant}</span></div>`)
+        .join('');
+
+    const bebidasLineas = Object.entries(datos.bebidasPorTipo || {})
+        .filter(([_, cant]) => cant > 0)
+        .map(([tipo, cant]) => `<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;"><span style="text-transform:capitalize;">${tipo.replace('_', ' ')}</span><span>${cant}</span></div>`)
+        .join('');
 
     overlay.innerHTML = `
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
-            <p class="text-3xl">🧾</p>
-            <h2 class="text-xl font-extrabold">Cuenta pedida</h2>
-            <p class="text-gray-400 text-sm">${datos.origen}</p>
-            <p class="text-gray-400 text-sm">Mesero: <span class="text-gray-200 font-semibold">${datos.mesero}</span></p>
-
-            <div class="border-t border-gray-700 my-2"></div>
-
-            <div class="flex justify-between text-sm text-gray-300">
-                <span>🌮 Tacos</span>
-                <span>${datos.cantidadTacos}</span>
+        <div style="background:#1e293b;border-radius:24px;max-width:400px;width:100%;padding:24px;color:#f1f5f9;">
+            <div style="text-align:center;font-size:48px;">🧾</div>
+            <h2 style="text-align:center;font-size:24px;font-weight:800;margin:8px 0 4px;">Cuenta pedida</h2>
+            <p style="text-align:center;color:#94a3b8;margin-bottom:4px;">${datos.origen}</p>
+            <p style="text-align:center;color:#cbd5e1;margin-bottom:2px;">Mesero que abrió: <strong>${datos.mesero}</strong></p>
+            <p style="text-align:center;color:#cbd5e1;margin-bottom:16px;">Cuenta solicitada por: <strong>${datos.solicitadoPor}</strong></p>
+            <hr style="border-color:#334155;margin:12px 0;">
+            <p style="font-weight:700;margin-bottom:4px;">🌮 Tacos</p>
+            ${tacosLineas || '<p style="color:#64748b;font-size:14px;">Sin tacos</p>'}
+            <p style="font-weight:700;margin:12px 0 4px;">🥤 Bebidas</p>
+            ${bebidasLineas || '<p style="color:#64748b;font-size:14px;">Sin bebidas</p>'}
+            <hr style="border-color:#334155;margin:12px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;">
+                <span>Total</span><span>$${datos.total}</span>
             </div>
-            <div class="flex justify-between text-sm text-gray-300">
-                <span>🥤 Bebidas</span>
-                <span>${datos.cantidadBebidas}</span>
-            </div>
-
-            <div class="border-t border-gray-700 my-2"></div>
-
-            <div class="flex justify-between text-lg font-extrabold">
-                <span>Total</span>
-                <span>$${datos.total}</span>
-            </div>
-
-            <button id="btn-cerrar-ticket" class="w-full bg-purple-700 hover:bg-purple-600 rounded-xl py-3 font-bold mt-2">
-                Aceptar
-            </button>
+            <button id="btn-cerrar-ticket" style="width:100%;margin-top:20px;background:#7e22ce;padding:14px;border-radius:16px;font-weight:700;border:none;color:white;">Aceptar</button>
         </div>
     `;
-
     document.body.appendChild(overlay);
-
-    document.getElementById('btn-cerrar-ticket').addEventListener('click', () => {
-        overlay.remove();
-    });
+    overlay.querySelector('#btn-cerrar-ticket').addEventListener('click', () => overlay.remove());
 }
