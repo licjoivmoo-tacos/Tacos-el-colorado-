@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Cocina</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 min-h-screen text-gray-100 flex flex-col items-center justify-center p-6">
+
+    <img src="https://i.ibb.co/gbCxqN6V/1000068301.png" alt="Tacos el Colorado"
+         class="w-24 h-24 object-contain rounded-full shadow-lg bg-gray-800 p-1 mb-6">
+    <h1 class="text-3xl font-extrabold mb-2">Tacos el Colorado</h1>
+    <p class="text-gray-400 mb-10">Selecciona la vista de esta pantalla</p>
+
+    <div class="grid grid-cols-1 gap-6 w-full max-w-md">
+        <button onclick="window.location.href='comedor.html'"
+            class="bg-red-800 hover:bg-red-700 rounded-3xl py-10 text-3xl font-extrabold flex flex-col items-center gap-3">
+            🍽️ Comedor
+        </button>
+        <button onclick="window.location.href='domicilio.html'"
+            class="bg-yellow-800 hover:bg-yellow-700 rounded-3xl py-10 text-3xl font-extrabold flex flex-col items-center gap-3">
+            🚚 Para llevar
+        </button>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function verificarSesion() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+
+            const { data: perfil } = await supabaseClient
+                .from('perfiles').select('rol').eq('id', user.id).single();
+            if (!perfil || !['cocinero', 'cajero', 'administrador', 'superadministrador'].includes(perfil.rol)) {
+                alert('No tienes permiso para ver esta página.');
+                window.location.href = 'index.html';
+                return;
+            }
+        }
+        verificarSesion();
+    </script>
+</body>
+</html>
