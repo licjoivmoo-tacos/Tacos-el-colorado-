@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Caja</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 min-h-screen text-gray-100">
+
+    <div class="flex items-center gap-3 px-4 py-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+        <button onclick="window.location.href='inicio.html'" class="text-gray-400 hover:text-white text-2xl">←</button>
+        <h1 class="text-xl font-extrabold flex-1">💰 Caja</h1>
+        <button id="btn-cerrar-caja" class="bg-red-800 hover:bg-red-700 text-sm font-semibold px-3 py-2 rounded-xl">
+            Cerrar caja
+        </button>
+    </div>
+
+    <div class="px-4 py-6">
+        <h2 class="text-center text-gray-400 text-sm uppercase tracking-wide mb-4">Mesas y pedidos activos</h2>
+        <div id="grid-mesas" class="grid grid-cols-3 gap-3 max-w-md mx-auto"></div>
+        <p id="sin-actividad" class="hidden text-center text-gray-500 py-8">No hay mesas ocupadas ahora mismo.</p>
+    </div>
+
+    <!-- Overlay: Ticket con acciones -->
+    <div id="overlay-ticket" class="hidden fixed inset-0 bg-black/70 z-40 flex items-end sm:items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-3xl max-w-md w-full p-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <h3 id="ticket-titulo" class="text-xl font-extrabold"></h3>
+                    <p id="ticket-mesero" class="text-sm text-gray-400"></p>
+                </div>
+                <button id="btn-cerrar-overlay" class="text-gray-400 text-2xl">✕</button>
+            </div>
+
+            <div id="ticket-lista" class="space-y-3 my-3"></div>
+
+            <div id="ticket-aviso-no-preparado" class="hidden bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm rounded-xl p-3 mb-3">
+                ⚠️ Hay tacos que aún no están marcados como preparados. No se puede cobrar hasta que cocina los termine.
+            </div>
+
+            <div id="ticket-descuento-aplicado" class="hidden text-sm text-green-400 mb-2"></div>
+
+            <div class="flex justify-between items-center text-lg font-bold border-t border-gray-700 pt-3">
+                <span>Total</span>
+                <span id="ticket-total"></span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-2 mt-4">
+                <button id="btn-cobrar" class="bg-green-700 hover:bg-green-600 rounded-xl py-3 font-bold">✅ Cobrar</button>
+                <button id="btn-descuento" class="bg-blue-700 hover:bg-blue-600 rounded-xl py-3 font-bold">🏷️ Aplicar descuento</button>
+                <button id="btn-corregir" class="bg-gray-700 hover:bg-gray-600 rounded-xl py-3 font-bold">✏️ Corregir cuenta</button>
+            </div>
+        </div>
+    </div>
+    <!-- Overlay: Aplicar descuento -->
+    <div id="overlay-descuento" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-3xl max-w-sm w-full p-5">
+            <h3 class="text-lg font-bold mb-3">Aplicar descuento</h3>
+            <div class="grid grid-cols-3 gap-2 mb-3">
+                <button data-pct="15" class="btn-pct bg-gray-700 rounded-xl py-3 font-bold">15%</button>
+                <button data-pct="25" class="btn-pct bg-gray-700 rounded-xl py-3 font-bold">25%</button>
+                <button data-pct="40" class="btn-pct bg-gray-700 rounded-xl py-3 font-bold">40%</button>
+            </div>
+            <p class="text-sm text-gray-400 mb-1">Motivo (obligatorio)</p>
+            <textarea id="input-motivo-descuento" rows="2" placeholder="Ej: cliente frecuente, error en cocina..."
+                class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-sm mb-3"></textarea>
+            <div class="flex gap-2">
+                <button id="btn-confirmar-descuento" class="flex-1 bg-blue-700 hover:bg-blue-600 rounded-xl py-3 font-bold" disabled>Confirmar</button>
+                <button id="btn-cancelar-descuento" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-3">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay: Cerrar caja -->
+    <div id="overlay-cierre" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-3xl max-w-sm w-full p-5">
+            <h3 class="text-lg font-bold mb-3">Cerrar caja del día</h3>
+            <div class="bg-gray-900 rounded-xl p-3 mb-3 text-sm space-y-1">
+                <div class="flex justify-between"><span class="text-gray-400">Total vendido hoy</span><span id="resumen-total" class="font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Tacos vendidos hoy</span><span id="resumen-tacos" class="font-bold"></span></div>
+            </div>
+            <p class="text-sm text-gray-400 mb-1">Carne consumida (kg)</p>
+            <input id="input-carne-kg" type="number" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 mb-3">
+            <p class="text-sm text-gray-400 mb-1">Tortilla consumida (kg)</p>
+            <input id="input-tortilla-kg" type="number" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 mb-3">
+            <p class="text-sm text-gray-400 mb-1">Notas (opcional)</p>
+            <textarea id="input-notas-cierre" rows="2" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-sm mb-3"></textarea>
+            <div class="flex gap-2">
+                <button id="btn-confirmar-cierre" class="flex-1 bg-red-700 hover:bg-red-600 rounded-xl py-3 font-bold">Confirmar cierre</button>
+                <button id="btn-cancelar-cierre" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-3">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const TOTAL_MESAS = 11;
+        const SILLAS_BARRA = [101, 102, 103, 104];
+        const gridMesas = document.getElementById('grid-mesas');
+        const mesaEls = {};
+
+        let usuarioId = null;
+        let usuarioNombre = null;
+        let pedidoSeleccionado = null;
+        let descuentoActual = { pct: 0, motivo: null };
+
+        async function verificarSesion() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+
+            const { data: perfil } = await supabaseClient
+                .from('perfiles').select('rol, nombre_completo').eq('id', user.id).single();
+            if (!perfil || !['cajero', 'administrador', 'superadministrador'].includes(perfil.rol)) {
+                alert('No tienes permiso para ver esta página.');
+                window.location.href = 'inicio.html';
+                return;
+            }
+            usuarioId = user.id;
+            usuarioNombre = perfil.nombre_completo;
+
+            iniciarGrid();
+        }
+        verificarSesion();function iniciarGrid() {
+            gridMesas.innerHTML = '';
+
+            for (let i = 1; i <= TOTAL_MESAS; i++) {
+                const btn = document.createElement('button');
+                btn.className = "relative aspect-square bg-gray-800 border-2 border-gray-700 rounded-2xl flex flex-col items-center justify-center gap-1 transition active:scale-95";
+                btn.innerHTML = `
+                    <span class="punto-rojo hidden absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900"></span>
+                    <span class="text-3xl">🍽️</span>
+                    <span class="text-sm font-semibold text-gray-300">Mesa ${i}</span>
+                `;
+                btn.addEventListener('click', () => abrirTicket(i));
+                gridMesas.appendChild(btn);
+                mesaEls[i] = { el: btn, puntoEl: btn.querySelector('.punto-rojo') };
+            }
+
+            const barraCard = document.createElement('div');
+            barraCard.className = "aspect-square bg-gray-800 border-2 border-gray-700 rounded-2xl p-2 flex flex-col";
+            barraCard.innerHTML = `
+                <span class="text-xs text-center text-gray-400 font-semibold mb-1">Barra</span>
+                <div class="grid grid-cols-2 gap-1 flex-1" id="grid-sillas-barra"></div>
+            `;
+            gridMesas.appendChild(barraCard);
+            const gridSillas = barraCard.querySelector('#grid-sillas-barra');
+
+            SILLAS_BARRA.forEach((num, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "relative bg-gray-700 border border-gray-600 rounded-lg flex items-center justify-center transition active:scale-95";
+                btn.innerHTML = `
+                    <span class="punto-rojo hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-gray-900"></span>
+                    <span class="text-xs font-semibold text-gray-300">${idx + 1}</span>
+                `;
+                btn.addEventListener('click', () => abrirTicket(num));
+                gridSillas.appendChild(btn);
+                mesaEls[num] = { el: btn, puntoEl: btn.querySelector('.punto-rojo') };
+            });
+
+            cargarEstadoMesas();
+            suscribirRealtime();
+        }
+
+        async function cargarEstadoMesas() {
+            const { data: pedidosActivos } = await supabaseClient
+                .from('pedidos')
+                .select('id, mesa_numero, mesero_id, estado')
+                .not('mesa_numero', 'is', null)
+                .in('estado', ['abierto', 'cuenta_pedida']);
+
+            const todosNumeros = [...Array.from({ length: TOTAL_MESAS }, (_, i) => i + 1), ...SILLAS_BARRA];
+            todosNumeros.forEach(num => {
+                mesaEls[num].el.style.borderColor = '';
+                mesaEls[num].puntoEl.classList.add('hidden');
+            });
+
+            document.getElementById('sin-actividad').classList.toggle('hidden', (pedidosActivos || []).length > 0);
+            if (!pedidosActivos || pedidosActivos.length === 0) return;
+
+            const meseroIds = [...new Set(pedidosActivos.map(p => p.mesero_id))];
+            const { data: perfiles } = await supabaseClient
+                .from('perfiles').select('id, color').in('id', meseroIds);
+            const colorPorMesero = {};
+            (perfiles || []).forEach(p => { colorPorMesero[p.id] = p.color || '#6b7280'; });
+
+            pedidosActivos.forEach(p => {
+                const mesaEl = mesaEls[p.mesa_numero];
+                if (!mesaEl) return;
+                mesaEl.el.style.borderColor = colorPorMesero[p.mesero_id] || '#6b7280';
+                if (p.estado === 'cuenta_pedida') {
+                    mesaEl.puntoEl.classList.remove('hidden');
+                }
+            });
+        }
+
+        function suscribirRealtime() {
+            supabaseClient
+                .channel('caja-mesas')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, cargarEstadoMesas)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tacos' }, () => {
+                    if (pedidoSeleccionado) abrirTicket(pedidoSeleccionado.mesa_numero, true);
+                })
+                .subscribe();
+        }async function abrirTicket(numeroMesa, silencioso) {
+            const { data: pedido } = await supabaseClient
+                .from('pedidos').select('*')
+                .eq('mesa_numero', numeroMesa)
+                .in('estado', ['abierto', 'cuenta_pedida'])
+                .maybeSingle();
+
+            if (!pedido) {
+                if (!silencioso) alert('Esta mesa no tiene un pedido activo.');
+                return;
+            }
+
+            const { data: platos } = await supabaseClient.from('platos')
+                .select('*, tacos(*)').eq('pedido_id', pedido.id);
+            const { data: bebidas } = await supabaseClient.from('bebidas')
+                .select('*').eq('pedido_id', pedido.id);
+
+            const { data: perfilMesero } = await supabaseClient
+                .from('perfiles').select('nombre_completo').eq('id', pedido.mesero_id).single();
+
+            pedidoSeleccionado = { pedido, platos: platos || [], bebidas: bebidas || [], mesa_numero: numeroMesa, meseroNombre: perfilMesero ? perfilMesero.nombre_completo : 'Desconocido' };
+            descuentoActual = { pct: 0, motivo: null };
+
+            renderTicket();
+            document.getElementById('overlay-ticket').classList.remove('hidden');
+        }
+
+        function renderTicket() {
+            const { pedido, platos, bebidas, mesa_numero, meseroNombre } = pedidoSeleccionado;
+
+            document.getElementById('ticket-titulo').textContent = `Mesa ${mesa_numero}`;
+            document.getElementById('ticket-mesero').textContent = `Atendida por: ${meseroNombre}`;
+
+            const lista = document.getElementById('ticket-lista');
+            lista.innerHTML = '';
+            let subtotal = 0;
+            let hayNoPreparados = false;
+
+            platos.forEach(plato => {
+                if (!plato.tacos || plato.tacos.length === 0) return;
+                plato.tacos.forEach(t => {
+                    const sub = t.precio_unitario * t.cantidad;
+                    subtotal += sub;
+                    if (!t.preparado) hayNoPreparados = true;
+                    const estado = t.preparado
+                        ? '<span class="text-green-500">✓ Preparado</span>'
+                        : '<span class="text-yellow-500">🕓 En preparación</span>';
+                    lista.innerHTML += `<div class="flex justify-between text-sm">
+                        <span>${t.cantidad}x ${t.tipos.join(' + ')} — ${estado}</span>
+                        <span class="text-gray-400">$${sub}</span>
+                    </div>`;
+                });
+            });
+
+            bebidas.forEach(b => {
+                const sub = b.precio_unitario * b.cantidad;
+                subtotal += sub;
+                const detalle = [b.sabor, b.tamano].filter(Boolean).join(' ');
+                lista.innerHTML += `<div class="flex justify-between text-sm">
+                    <span>${b.cantidad}x ${b.tipo.replace('_', ' ')}${detalle ? ' ' + detalle : ''}</span>
+                    <span class="text-gray-400">$${sub}</span>
+                </div>`;
+            });
+
+            document.getElementById('ticket-aviso-no-preparado').classList.toggle('hidden', !hayNoPreparados);
+            document.getElementById('btn-cobrar').disabled = hayNoPreparados;
+            document.getElementById('btn-cobrar').classList.toggle('opacity-50', hayNoPreparados);
+
+            let total = subtotal;
+            const descEl = document.getElementById('ticket-descuento-aplicado');
+            if (descuentoActual.pct > 0) {
+                const rebaja = Math.round(subtotal * descuentoActual.pct / 100);
+                total = subtotal - rebaja;
+                descEl.textContent = `Descuento ${descuentoActual.pct}% (${descuentoActual.motivo}): -$${rebaja}`;
+                descEl.classList.remove('hidden');
+            } else {
+                descEl.classList.add('hidden');
+            }
+
+            pedidoSeleccionado.subtotal = subtotal;
+            pedidoSeleccionado.total = total;
+            document.getElementById('ticket-total').textContent = `$${total}`;
+        }
+
+        document.getElementById('btn-cerrar-overlay').addEventListener('click', () => {
+            document.getElementById('overlay-ticket').classList.add('hidden');
+            pedidoSeleccionado = null;
+        });
+        document.getElementById('btn-descuento').addEventListener('click', () => {
+            document.getElementById('input-motivo-descuento').value = '';
+            document.querySelectorAll('.btn-pct').forEach(b => marcarActivoPct(b, false));
+            document.getElementById('btn-confirmar-descuento').disabled = true;
+            document.getElementById('overlay-descuento').classList.remove('hidden');
+        });
+
+        function marcarActivoPct(btn, activo) {
+            btn.style.backgroundColor = activo ? '#1d4ed8' : '';
+        }
+
+        let pctSeleccionado = 0;
+        document.querySelectorAll('.btn-pct').forEach(b => b.addEventListener('click', () => {
+            pctSeleccionado = parseInt(b.dataset.pct);
+            document.querySelectorAll('.btn-pct').forEach(x => marcarActivoPct(x, x === b));
+            revisarDescuentoListo();
+        }));
+        document.getElementById('input-motivo-descuento').addEventListener('input', revisarDescuentoListo);
+
+        function revisarDescuentoListo() {
+            const motivo = document.getElementById('input-motivo-descuento').value.trim();
+            document.getElementById('btn-confirmar-descuento').disabled = !(pctSeleccionado > 0 && motivo.length > 0);
+        }
+
+        document.getElementById('btn-cancelar-descuento').addEventListener('click', () => {
+            document.getElementById('overlay-descuento').classList.add('hidden');
+        });
+
+        document.getElementById('btn-confirmar-descuento').addEventListener('click', () => {
+            descuentoActual = { pct: pctSeleccionado, motivo: document.getElementById('input-motivo-descuento').value.trim() };
+            renderTicket();
+            document.getElementById('overlay-descuento').classList.add('hidden');
+        });
+
+        document.getElementById('btn-corregir').addEventListener('click', async () => {
+            const confirmar = confirm('¿Regresar esta mesa a editable? El mesero podrá modificar el pedido de nuevo.');
+            if (!confirmar) return;
+            await supabaseClient.from('pedidos').update({ estado: 'abierto' }).eq('id', pedidoSeleccionado.pedido.id);
+            document.getElementById('overlay-ticket').classList.add('hidden');
+            pedidoSeleccionado = null;
+        });
+
+        document.getElementById('btn-cobrar').addEventListener('click', async () => {
+            const { pedido, platos, bebidas, mesa_numero, meseroNombre, total } = pedidoSeleccionado;
+
+            const tacosDetalle = [];
+            platos.forEach(p => (p.tacos || []).forEach(t => {
+                tacosDetalle.push({ tipos: t.tipos, cantidad: t.cantidad });
+            }));
+            const bebidasDetalle = bebidas.map(b => ({ tipo: b.tipo, tamano: b.tamano, sabor: b.sabor, cantidad: b.cantidad }));
+
+            const { error: errorVenta } = await supabaseClient.from('ventas').insert({
+                origen: 'mesa',
+                mesa_numero,
+                mesero_id: pedido.mesero_id,
+                mesero_nombre: meseroNombre,
+                total,
+                descuento_porcentaje: descuentoActual.pct,
+                descuento_motivo: descuentoActual.motivo,
+                tacos_detalle: tacosDetalle,
+                bebidas_detalle: bebidasDetalle
+            });
+            if (errorVenta) { alert('Error al guardar venta: ' + errorVenta.message); return; }
+
+            const platoIds = platos.map(p => p.id);
+            if (platoIds.length > 0) {
+                await supabaseClient.from('tacos').delete().in('plato_id', platoIds);
+                await supabaseClient.from('platos').delete().in('id', platoIds);
+            }
+            await supabaseClient.from('bebidas').delete().eq('pedido_id', pedido.id);
+            await supabaseClient.from('pedidos').delete().eq('id', pedido.id);
+
+            alert('✅ Cobro registrado. Mesa liberada.');
+            document.getElementById('overlay-ticket').classList.add('hidden');
+            pedidoSeleccionado = null;
+        });
+
+        // --- Cerrar caja ---
+        document.getElementById('btn-cerrar-caja').addEventListener('click', async () => {
+            const inicioDia = new Date();
+            inicioDia.setHours(0, 0, 0, 0);
+
+            const { data: ventasHoy } = await supabaseClient
+                .from('ventas').select('total, tacos_detalle').gte('fecha', inicioDia.toISOString());
+
+            const totalHoy = (ventasHoy || []).reduce((acc, v) => acc + Number(v.total), 0);
+            const tacosHoy = (ventasHoy || []).reduce((acc, v) =>
+                acc + (v.tacos_detalle || []).reduce((a, t) => a + t.cantidad, 0), 0);
+
+            document.getElementById('resumen-total').textContent = `$${totalHoy}`;
+            document.getElementById('resumen-tacos').textContent = tacosHoy;
+            document.getElementById('input-carne-kg').value = '';
+            document.getElementById('input-tortilla-kg').value = '';
+            document.getElementById('input-notas-cierre').value = '';
+
+            window._cierreTemp = { totalHoy, tacosHoy };
+            document.getElementById('overlay-cierre').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-cancelar-cierre').addEventListener('click', () => {
+            document.getElementById('overlay-cierre').classList.add('hidden');
+        });
+
+        document.getElementById('btn-confirmar-cierre').addEventListener('click', async () => {
+            const carneKg = parseFloat(document.getElementById('input-carne-kg').value);
+            const tortillaKg = parseFloat(document.getElementById('input-tortilla-kg').value);
+
+            if (isNaN(carneKg) || isNaN(tortillaKg)) {
+                alert('Ingresa los kilos de carne y tortilla.');
+                return;
+            }
+
+            const { error } = await supabaseClient.from('cierres_caja').insert({
+                cajero_id: usuarioId,
+                cajero_nombre: usuarioNombre,
+                total_ventas: window._cierreTemp.totalHoy,
+                total_tacos_vendidos: window._cierreTemp.tacosHoy,
+                carne_kg_reportada: carneKg,
+                tortilla_kg_reportada: tortillaKg,
+                notas: document.getElementById('input-notas-cierre').value.trim() || null
+            });
+            if (error) { alert('Error: ' + error.message); return; }
+
+            alert('✅ Caja cerrada correctamente.');
+            document.getElementById('overlay-cierre').classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
