@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Comedor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 min-h-screen text-gray-100">
+
+    <div class="flex items-center gap-4 px-6 py-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+        <button onclick="window.location.href='cocina-menu.html'" class="text-gray-400 hover:text-white text-3xl">←</button>
+        <h1 class="text-3xl font-extrabold">🍽️ Comedor</h1>
+        <span id="reloj" class="ml-auto text-xl text-gray-400 font-mono"></span>
+    </div>
+
+    <div id="grid-platos" class="grid grid-cols-3 gap-5 p-6"></div>
+    <p id="sin-pendientes" class="hidden text-center text-gray-500 text-2xl py-20">No hay platos pendientes 🎉</p>
+
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function verificarSesion() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+
+            const { data: perfil } = await supabaseClient
+                .from('perfiles').select('rol').eq('id', user.id).single();
+            if (!perfil || !['cocinero', 'cajero', 'administrador', 'superadministrador'].includes(perfil.rol)) {
+                alert('No tienes permiso para ver esta página.');
+                window.location.href = 'index.html';
+                return;
+            }
+            cargarPendientes();
+            suscribirRealtime();
+        }
+        verificarSesion();
+
+        setInterval(() => {
+            document.getElementById('reloj').textContent = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }, 1000);
+
+        function formatHora(iso) {
+            return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function descripcionCompleta(t) {
+            const partes = [];
+            partes.push(t.tortilla === 'grande' ? 'Tortilla grande' : 'Tortilla normal');
+            partes.push(t.textura_tortilla);
+            partes.push(t.tipos.join(' + '));
+            if (t.tipos.includes('longaniza') && t.longaniza_estilo) partes.push(`longaniza ${t.longaniza_estilo}`);
+            partes.push(t.cebolla ? 'con cebolla' : 'sin cebolla');
+            partes.push(t.cilantro ? 'con cilantro' : 'sin cilantro');
+            return `${t.cantidad}x ${partes.join(', ')}`;
+        }let coloresMesero = {};
+
+        async function cargarColoresMesero(ids) {
+            const faltantes = [...new Set(ids)].filter(id => id && !coloresMesero[id]);
+            if (faltantes.length === 0) return;
+            const { data } = await supabaseClient.from('perfiles').select('id, nombre_completo, color').in('id', faltantes);
+            (data || []).forEach(p => { coloresMesero[p.id] = { color: p.color || '#6b7280', nombre: p.nombre_completo || 'Sin nombre' }; });
+        }
+
+        async function cargarPendientes() {
+            const { data: tacos } = await supabaseClient
+                .from('tacos').select('*')
+                .eq('enviado', true).eq('preparado', false)
+                .order('hora_enviado');
+
+            if (!tacos || tacos.length === 0) {
+                document.getElementById('grid-platos').innerHTML = '';
+                document.getElementById('sin-pendientes').classList.remove('hidden');
+                return;
+            }
+
+            const platoIds = [...new Set(tacos.map(t => t.plato_id))];
+            const { data: platos } = await supabaseClient
+                .from('platos').select('id, pedido_id, notas').in('id', platoIds);
+
+            const pedidoIds = [...new Set((platos || []).map(p => p.pedido_id))];
+            const { data: pedidos } = await supabaseClient
+                .from('pedidos').select('id, mesa_numero').in('id', pedidoIds).not('mesa_numero', 'is', null);
+
+            const pedidosValidos = new Set((pedidos || []).map(p => p.id));
+            const pedidoPorId = {};
+            (pedidos || []).forEach(p => { pedidoPorId[p.id] = p; });
+            const platoPorId = {};
+            (platos || []).forEach(p => { if (pedidosValidos.has(p.pedido_id)) platoPorId[p.id] = p; });
+
+            await cargarColoresMesero(tacos.map(t => t.mesero_id));
+
+            const tacosPorPlato = {};
+            tacos.forEach(t => {
+                if (!platoPorId[t.plato_id]) return; // no es de mesa (es para llevar), lo ignoramos aquí
+                if (!tacosPorPlato[t.plato_id]) tacosPorPlato[t.plato_id] = [];
+                tacosPorPlato[t.plato_id].push(t);
+            });
+
+            const grid = document.getElementById('grid-platos');
+            grid.innerHTML = '';
+            document.getElementById('sin-pendientes').classList.toggle('hidden', Object.keys(tacosPorPlato).length > 0);
+
+            Object.entries(tacosPorPlato).forEach(([platoId, lineas]) => {
+                const plato = platoPorId[platoId];
+                const pedido = pedidoPorId[plato.pedido_id];
+                const primerTaco = lineas[0];
+                const info = coloresMesero[primerTaco.mesero_id] || { color: '#6b7280', nombre: 'Desconocido' };
+
+                const lineasHtml = lineas.map(t => `<p class="text-xl leading-snug py-1">${descripcionCompleta(t)}</p>`).join('');
+                const notaHtml = plato.notas ? `<p class="mt-2 bg-yellow-900/50 border border-yellow-700 text-yellow-300 rounded-xl p-2 text-lg">📝 ${plato.notas}</p>` : '';
+
+                const card = document.createElement('div');
+                card.className = 'rounded-3xl p-5 border-4';
+                card.style.borderColor = info.color;
+                card.style.backgroundColor = '#1e293b';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-3xl font-extrabold">Mesa ${pedido.mesa_numero}</p>
+                            <p class="text-lg" style="color:${info.color}">${info.nombre}</p>
+                        </div>
+                        <p class="text-2xl font-mono text-gray-400">${formatHora(primerTaco.hora_enviado)}</p>
+                    </div>
+                    ${lineasHtml}
+                    ${notaHtml}
+                    <button data-plato-id="${platoId}" class="btn-preparado w-full mt-4 bg-green-700 hover:bg-green-600 rounded-2xl py-4 text-2xl font-extrabold">
+                        ✓ Preparado
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+
+            document.querySelectorAll('.btn-preparado').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const platoId = btn.dataset.platoId;
+                    const ahora = new Date().toISOString();
+                    await supabaseClient.from('tacos')
+                        .update({ preparado: true, hora_preparado: ahora })
+                        .eq('plato_id', platoId);
+                });
+            });
+        }function suscribirRealtime() {
+            supabaseClient
+                .channel('comedor-tacos')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tacos' }, cargarPendientes)
+                .subscribe();
+        }
+    </script>
+</body>
+</html>
