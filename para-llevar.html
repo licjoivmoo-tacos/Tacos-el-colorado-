@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Para llevar</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="ticket.js"></script>
+</head>
+<body class="bg-gray-900 min-h-screen text-gray-100 pb-40">
+
+    <div class="flex items-center gap-3 px-4 py-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+        <button id="btn-atras" class="text-gray-400 hover:text-white text-2xl">←</button>
+        <h1 id="titulo-vista" class="text-xl font-extrabold flex-1">🚚 Para llevar</h1>
+    </div>
+
+    <!-- Vista: Lista de turnos -->
+    <div id="vista-lista" class="px-4 py-4 space-y-3">
+        <button id="btn-nuevo-turno" class="w-full bg-yellow-700 hover:bg-yellow-600 rounded-2xl py-4 font-bold flex items-center justify-center gap-2">
+            <span class="text-2xl">+</span> Nuevo turno
+        </button>
+        <div id="lista-turnos" class="space-y-3"></div>
+        <p id="sin-turnos" class="hidden text-center text-gray-500 py-10">No hay turnos activos.</p>
+    </div>
+
+    <!-- Modal: Nuevo turno -->
+    <div id="overlay-nuevo-turno" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-3xl max-w-sm w-full p-5">
+            <h3 class="text-lg font-bold mb-3">Nuevo turno</h3>
+            <p class="text-sm text-gray-400 mb-1">Nota para identificar al cliente</p>
+            <input id="input-nota-cliente" type="text" placeholder="Ej: gorra roja, playera azul, Juan..."
+                class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 mb-4">
+            <div class="flex gap-2">
+                <button id="btn-crear-turno" class="flex-1 bg-yellow-700 hover:bg-yellow-600 rounded-xl py-3 font-bold">Crear</button>
+                <button id="btn-cancelar-turno" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-3">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Vista: Armar pedido de un turno -->
+    <div id="vista-turno" class="hidden">
+        <div class="px-4 py-2 bg-gray-800 border-b border-gray-700">
+            <p id="turno-info-numero" class="text-2xl font-extrabold"></p>
+            <p id="turno-info-nota" class="text-sm text-gray-400"></p>
+        </div>
+
+        <div id="cargando-turno" class="text-center text-gray-400 py-10">Cargando...</div>
+
+        <div id="contenido-turno" class="hidden px-4 py-4 space-y-6">
+
+            <div id="botones-agregar" class="grid grid-cols-2 gap-3">
+                <button id="btn-abrir-taco" class="bg-yellow-700 hover:bg-yellow-600 rounded-2xl py-4 font-bold flex flex-col items-center gap-1">
+                    <span class="text-2xl">🌮</span> Nuevo plato
+                </button>
+                <button id="btn-abrir-bebida" class="bg-blue-700 hover:bg-blue-600 rounded-2xl py-4 font-bold flex flex-col items-center gap-1">
+                    <span class="text-2xl">🥤</span> Agregar bebida
+                </button>
+            </div>
+
+            <div id="panel-taco" class="hidden bg-gray-800 border border-gray-700 rounded-2xl p-4 space-y-4">
+                <h3 class="font-bold text-lg">Armar plato</h3>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Tortilla</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-tortilla="grande" class="btn-tortilla bg-gray-700 rounded-xl py-2">Grande ($22)</button>
+                        <button data-tortilla="normal" class="btn-tortilla bg-gray-700 rounded-xl py-2">Normal ($15)</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Textura de tortilla</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button data-textura="blandita" class="btn-textura bg-gray-700 rounded-xl py-2 text-sm">Blandita</button>
+                        <button data-textura="dorada" class="btn-textura bg-gray-700 rounded-xl py-2 text-sm">Dorada</button>
+                        <button data-textura="tostada" class="btn-textura bg-gray-700 rounded-xl py-2 text-sm">Tostada</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Tipo (elige 1, o varios para combinado)</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-tipo="bistec" class="btn-tipo bg-gray-700 rounded-xl py-2">Bistec</button>
+                        <button data-tipo="obispo" class="btn-tipo bg-gray-700 rounded-xl py-2">Obispo</button>
+                        <button data-tipo="longaniza" class="btn-tipo bg-gray-700 rounded-xl py-2">Longaniza</button>
+                        <button data-tipo="suadero" class="btn-tipo bg-gray-700 rounded-xl py-2">Suadero</button>
+                    </div>
+                </div>
+
+                <div id="opciones-longaniza" class="hidden">
+                    <p class="text-sm text-gray-400 mb-1">Estilo de longaniza</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-longaniza="normal" class="btn-longaniza bg-gray-700 rounded-xl py-2 text-sm">Normal</button>
+                        <button data-longaniza="dorada" class="btn-longaniza bg-gray-700 rounded-xl py-2 text-sm">Dorada</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Terminado</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-term="cebolla" class="btn-term bg-gray-700 rounded-xl py-2">🧅 Cebolla</button>
+                        <button data-term="cilantro" class="btn-term bg-gray-700 rounded-xl py-2">🌿 Cilantro</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">¿Cómo va la verdura?</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-aparte="true" class="btn-aparte bg-gray-700 rounded-xl py-2 text-sm">📦 Aparte</button>
+                        <button data-aparte="false" class="btn-aparte bg-gray-700 rounded-xl py-2 text-sm">🌮 Ya en el taco</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <p class="text-sm text-gray-400">Cantidad</p>
+                    <button id="taco-menos" class="w-9 h-9 bg-gray-700 rounded-lg">-</button>
+                    <span id="taco-cantidad" class="w-8 text-center font-bold">1</span>
+                    <button id="taco-mas" class="w-9 h-9 bg-gray-700 rounded-lg">+</button>
+                </div>
+
+                <button id="btn-agregar-linea-taco" class="w-full bg-yellow-600 hover:bg-yellow-500 rounded-xl py-3 font-bold">
+                    + Agregar al plato
+                </button>
+
+                <div id="lista-staging-tacos" class="space-y-2"></div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">📝 Nota para cocina (opcional)</p>
+                    <textarea id="input-nota-plato" rows="2" placeholder="Ej: con limón ya en el taco, urge..."
+                        class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-sm text-gray-200"></textarea>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="btn-guardar-plato" class="flex-1 bg-green-700 hover:bg-green-600 rounded-xl py-3 font-bold" disabled>
+                        Guardar plato
+                    </button>
+                    <button id="btn-cancelar-plato" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-3">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+            <div id="panel-bebida" class="hidden bg-gray-800 border border-gray-700 rounded-2xl p-4 space-y-4">
+                <h3 class="font-bold text-lg">Agregar bebida</h3>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Tipo</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-bebida="agua_simple" class="btn-bebida-tipo bg-gray-700 rounded-xl py-2">Agua simple</button>
+                        <button data-bebida="cafe" class="btn-bebida-tipo bg-gray-700 rounded-xl py-2">Café</button>
+                        <button data-bebida="agua_sabor" class="btn-bebida-tipo bg-gray-700 rounded-xl py-2">Agua de sabor</button>
+                        <button data-bebida="refresco" class="btn-bebida-tipo bg-gray-700 rounded-xl py-2">Refresco</button>
+                    </div>
+                </div>
+
+                <div id="opciones-tamano" class="hidden">
+                    <p class="text-sm text-gray-400 mb-1">Tamaño</p>
+                    <div id="botones-tamano" class="grid grid-cols-2 gap-2"></div>
+                </div>
+
+                <div id="opciones-sabor" class="hidden">
+                    <p class="text-sm text-gray-400 mb-1">Sabor</p>
+                    <div id="botones-sabor" class="grid grid-cols-2 gap-2"></div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <p class="text-sm text-gray-400">Cantidad</p>
+                    <button id="bebida-menos" class="w-9 h-9 bg-gray-700 rounded-lg">-</button>
+                    <span id="bebida-cantidad" class="w-8 text-center font-bold">1</span>
+                    <button id="bebida-mas" class="w-9 h-9 bg-gray-700 rounded-lg">+</button>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="btn-guardar-bebida" class="flex-1 bg-green-700 hover:bg-green-600 rounded-xl py-3 font-bold" disabled>
+                        Agregar
+                    </button>
+                    <button id="btn-cancelar-bebida" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-3">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-lg mb-2">Pedido de este turno</h3>
+                <div id="lista-pedido" class="space-y-3"></div>
+                <p id="pedido-vacio" class="text-gray-500 text-center py-6">Todavía no has agregado nada.</p>
+            </div>
+
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-4 space-y-3">
+                <h3 class="font-bold text-lg">Salsa y complementos</h3>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Salsa</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button data-salsa="roja" class="btn-salsa bg-gray-700 rounded-xl py-2 text-sm">🔴 Roja</button>
+                        <button data-salsa="verde" class="btn-salsa bg-gray-700 rounded-xl py-2 text-sm">🟢 Verde</button>
+                        <button data-salsa="ambas" class="btn-salsa bg-gray-700 rounded-xl py-2 text-sm">Ambas</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Complementos</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button data-comp="pepino" class="btn-comp bg-gray-700 rounded-xl py-2 text-sm">🥒 Pepino</button>
+                        <button data-comp="cebollitas" class="btn-comp bg-gray-700 rounded-xl py-2 text-sm">🧅 Cebollitas</button>
+                        <button data-comp="limones" class="btn-comp bg-gray-700 rounded-xl py-2 text-sm">🍋 Limones</button>
+                        <button data-comp="habanero" class="btn-comp bg-gray-700 rounded-xl py-2 text-sm">🌶️ Habanero</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Nota especial de complementos (opcional)</p>
+                    <textarea id="input-nota-complementos" rows="2" placeholder="Ej: cebollitas asadas, avisar al taquero..."
+                        class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-sm text-gray-200"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="barra-inferior" class="hidden fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 px-4 py-3 flex items-center justify-between gap-2">
+        <div>
+            <p class="text-xs text-gray-400">Total</p>
+            <p id="total-pedido" class="text-xl font-extrabold">$0</p>
+        </div>
+        <div class="flex gap-2">
+            <button id="btn-enviar-cocina" class="hidden bg-red-700 hover:bg-red-600 rounded-xl px-4 py-3 font-bold text-sm">
+                Enviar a cocina →
+            </button>
+            <button id="btn-entregado" class="hidden bg-purple-700 hover:bg-purple-600 rounded-xl px-4 py-3 font-bold text-sm">
+                Entregado y cobrado ✅
+            </button>
+        </div>
+    </div>
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let precios = {};
+        let usuarioId = null;
+        let usuarioNombre = null;
+        let turnoActual = null; // el pedido (turno) que se está armando
+
+        let stagingTacos = [];
+        let tacoSel = { tortilla: 'normal', textura: 'blandita', tipos: [], longanizaEstilo: 'normal', cebolla: true, cilantro: true, verduraAparte: true, cantidad: 1 };
+        let bebidaSel = { tipo: null, tamano: null, sabor: null, cantidad: 1 };
+        let salsaSel = null;
+        let complementosSel = { pepino: true, cebollitas: true, limones: true, habanero: true };
+
+        const opcionesBebida = {
+            agua_simple: { tamanos: null, sabores: null },
+            cafe: { tamanos: null, sabores: null },
+            agua_sabor: {
+                tamanos: [{ id: 'medio', label: 'Medio litro ($20)' }, { id: 'litro', label: 'Litro ($35)' }],
+                sabores: [{ id: 'horchata', label: 'Horchata' }, { id: 'jamaica', label: 'Jamaica' }]
+            },
+            refresco: {
+                tamanos: [{ id: '350', label: '350ml ($25)' }, { id: '600', label: '600ml ($35)' }],
+                sabores: null
+            }
+        };
+
+        const saboresRefresco = {
+            '350': ['Coca', 'Coca Light', 'Fanta', 'Sprite', 'Tehuacán', 'Sidral', 'Manzana', 'Mango', 'Guayaba'],
+            '600': ['Coca', 'Delaware']
+        };
+
+        function precioTaco(tortilla) {
+            return tortilla === 'grande' ? precios['taco_grande'] : precios['taco_normal'];
+        }
+
+        function precioBebida(tipo, tamano) {
+            if (tipo === 'agua_simple') return precios['agua_simple'];
+            if (tipo === 'cafe') return precios['cafe'];
+            if (tipo === 'agua_sabor') return tamano === 'litro' ? precios['agua_sabor_litro'] : precios['agua_sabor_medio'];
+            if (tipo === 'refresco') return tamano === '600' ? precios['refresco_600'] : precios['refresco_350'];
+            return 0;
+        }
+
+        function labelBebida(b) {
+            const detalle = [b.sabor, b.tamano].filter(Boolean).join(' ');
+            return `${b.tipo.replace('_', ' ')}${detalle ? ' ' + detalle : ''}`;
+        }
+
+        function descripcionTaco(t) {
+            const extras = [];
+            if (t.tortilla !== 'normal') extras.push('tortilla grande');
+            if (t.textura_tortilla !== 'blandita') extras.push(t.textura_tortilla);
+            if (!t.cebolla) extras.push('sin cebolla');
+            if (!t.cilantro) extras.push('sin cilantro');
+            if (t.tipos.includes('longaniza') && t.longaniza_estilo === 'dorada') extras.push('longaniza dorada');
+            extras.push(t.verdura_aparte ? 'verdura aparte' : 'verdura ya puesta');
+            const base = `${t.cantidad}x ${t.tipos.join(' + ')}`;
+            return extras.length ? `${base} (${extras.join(', ')})` : base;
+        }
+
+        function formatHora(iso) {
+            if (!iso) return '';
+            return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function marcarActivo(btn, activo) {
+            btn.style.backgroundColor = activo ? '#ca8a04' : '';
+        }
+        async function init() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+            usuarioId = user.id;
+
+            const { data: perfil } = await supabaseClient
+                .from('perfiles').select('nombre_completo').eq('id', user.id).single();
+            usuarioNombre = perfil ? perfil.nombre_completo : 'Desconocido';
+
+            const { data: preciosData } = await supabaseClient.from('precios').select('*');
+            preciosData.forEach(p => precios[p.concepto] = Number(p.valor));
+
+            mostrarVistaLista();
+        }
+
+        function mostrarVistaLista() {
+            turnoActual = null;
+            document.getElementById('vista-lista').classList.remove('hidden');
+            document.getElementById('vista-turno').classList.add('hidden');
+            document.getElementById('titulo-vista').textContent = '🚚 Para llevar';
+            document.getElementById('btn-atras').onclick = () => window.location.href = 'inicio.html';
+            cargarListaTurnos();
+        }
+
+        async function cargarListaTurnos() {
+            const inicioDia = new Date();
+            inicioDia.setHours(0, 0, 0, 0);
+
+            const { data: turnos } = await supabaseClient
+                .from('pedidos').select('*')
+                .is('mesa_numero', null)
+                .in('estado', ['abierto', 'cuenta_pedida'])
+                .gte('creado_en', inicioDia.toISOString())
+                .order('turno_numero');
+
+            const lista = document.getElementById('lista-turnos');
+            lista.innerHTML = '';
+            document.getElementById('sin-turnos').classList.toggle('hidden', (turnos || []).length > 0);
+
+            (turnos || []).forEach(t => {
+                const div = document.createElement('button');
+                div.className = 'w-full bg-gray-800 border border-gray-700 rounded-2xl p-4 text-left flex justify-between items-center';
+                div.innerHTML = `
+                    <div>
+                        <p class="text-lg font-bold">Turno #${t.turno_numero}</p>
+                        <p class="text-sm text-gray-400">${t.nota_cliente || 'Sin nota'}</p>
+                    </div>
+                    <span class="text-2xl">→</span>
+                `;
+                div.addEventListener('click', () => abrirTurno(t));
+                lista.appendChild(div);
+            });
+        }
+
+        document.getElementById('btn-nuevo-turno').addEventListener('click', () => {
+            document.getElementById('input-nota-cliente').value = '';
+            document.getElementById('overlay-nuevo-turno').classList.remove('hidden');
+        });
+        document.getElementById('btn-cancelar-turno').addEventListener('click', () => {
+            document.getElementById('overlay-nuevo-turno').classList.add('hidden');
+        });
+
+        document.getElementById('btn-crear-turno').addEventListener('click', async () => {
+            const nota = document.getElementById('input-nota-cliente').value.trim() || null;
+
+            const inicioDia = new Date();
+            inicioDia.setHours(0, 0, 0, 0);
+            const { data: turnosHoy } = await supabaseClient
+                .from('pedidos').select('turno_numero')
+                .is('mesa_numero', null)
+                .gte('creado_en', inicioDia.toISOString())
+                .order('turno_numero', { ascending: false })
+                .limit(1);
+
+            const siguienteNumero = (turnosHoy && turnosHoy.length > 0 && turnosHoy[0].turno_numero) ? turnosHoy[0].turno_numero + 1 : 1;
+
+            const { data: nuevo, error } = await supabaseClient.from('pedidos')
+                .insert({ mesa_numero: null, mesero_id: usuarioId, estado: 'abierto', turno_numero: siguienteNumero, nota_cliente: nota })
+                .select().single();
+
+            if (error) { alert('Error: ' + error.message); return; }
+
+            document.getElementById('overlay-nuevo-turno').classList.add('hidden');
+            abrirTurno(nuevo);
+        });
+        async function abrirTurno(turno) {
+            turnoActual = turno;
+            document.getElementById('vista-lista').classList.add('hidden');
+            document.getElementById('vista-turno').classList.remove('hidden');
+            document.getElementById('titulo-vista').textContent = `Turno #${turno.turno_numero}`;
+            document.getElementById('turno-info-numero').textContent = `🚚 Turno #${turno.turno_numero}`;
+            document.getElementById('turno-info-nota').textContent = turno.nota_cliente || 'Sin nota de cliente';
+            document.getElementById('btn-atras').onclick = () => mostrarVistaLista();
+
+            document.getElementById('cargando-turno').classList.remove('hidden');
+            document.getElementById('contenido-turno').classList.add('hidden');
+
+            await cargarPedidoTurno();
+            suscribirRealtimeTurno();
+
+            document.getElementById('cargando-turno').classList.add('hidden');
+            document.getElementById('contenido-turno').classList.remove('hidden');
+        }
+
+        function suscribirRealtimeTurno() {
+            supabaseClient
+                .channel('turno-' + turnoActual.id)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tacos' }, cargarPedidoTurno)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'bebidas' }, cargarPedidoTurno)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'platos' }, cargarPedidoTurno)
+                .subscribe();
+        }
+
+        async function cargarPedidoTurno() {
+            const cuentaPedida = turnoActual.estado === 'cuenta_pedida';
+            document.getElementById('botones-agregar').classList.toggle('hidden', cuentaPedida);
+
+            const { data: platos } = await supabaseClient.from('platos')
+                .select('*, tacos(*)').eq('pedido_id', turnoActual.id).order('creado_en');
+            const { data: bebidas } = await supabaseClient.from('bebidas')
+                .select('*').eq('pedido_id', turnoActual.id).order('creado_en');
+
+            renderPedidoTurno(platos || [], bebidas || [], cuentaPedida);
+        }
+
+        function renderPedidoTurno(platos, bebidas, cuentaPedida) {
+            const lista = document.getElementById('lista-pedido');
+            lista.innerHTML = '';
+            let total = 0;
+            let hayItems = false;
+            let hayPendientesPorEnviar = false;
+
+            platos.forEach(plato => {
+                if (!plato.tacos || plato.tacos.length === 0) return;
+                hayItems = true;
+                let totalPlato = 0;
+
+                const lineasHtml = plato.tacos.map(t => {
+                    const subtotal = t.precio_unitario * t.cantidad;
+                    totalPlato += subtotal;
+                    if (!t.enviado) hayPendientesPorEnviar = true;
+                    const puedeBorrar = !cuentaPedida && !t.enviado;
+
+                    let estadoTxt = '';
+                    if (t.enviado && t.preparado) estadoTxt = '<span class="text-green-500">✓ Preparado</span>';
+                    else if (t.enviado) estadoTxt = '<span class="text-yellow-500">🕓 En preparación</span>';
+
+                    return `<div class="flex justify-between items-center text-sm py-1">
+                        <span>${descripcionTaco(t)}${estadoTxt ? ' — ' + estadoTxt : ''}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400">$${subtotal}</span>
+                            ${puedeBorrar ? `<button data-taco-id="${t.id}" class="btn-borrar-taco text-red-400">🗑️</button>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+
+                total += totalPlato;
+                const notaHtml = plato.notas ? `<p class="text-xs text-gray-400 italic mt-1">📝 ${plato.notas}</p>` : '';
+
+                lista.innerHTML += `<div class="bg-gray-800 border border-gray-700 rounded-xl p-3">
+                    <div class="flex justify-between items-center font-semibold mb-1">
+                        <span class="text-sm text-gray-400">Plato</span><span>$${totalPlato}</span>
+                    </div>
+                    ${lineasHtml}
+                    ${notaHtml}
+                </div>`;
+            });
+
+            bebidas.forEach(b => {
+                hayItems = true;
+                const subtotal = b.precio_unitario * b.cantidad;
+                total += subtotal;
+                const puedeBorrar = !cuentaPedida;
+
+                lista.innerHTML += `<div class="bg-gray-800 border border-gray-700 rounded-xl p-3 flex justify-between items-center">
+                    <span class="text-sm">${b.cantidad}x ${labelBebida(b)}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-sm">$${subtotal}</span>
+                        ${puedeBorrar ? `<button data-bebida-id="${b.id}" class="btn-borrar-bebida text-red-400">🗑️</button>` : ''}
+                    </div>
+                </div>`;
+            });
+
+            document.getElementById('pedido-vacio').classList.toggle('hidden', hayItems);
+            document.getElementById('total-pedido').textContent = `$${total}`;
+            document.getElementById('barra-inferior').classList.toggle('hidden', !hayItems);
+            document.getElementById('btn-enviar-cocina').classList.toggle('hidden', !hayPendientesPorEnviar || cuentaPedida);
+            document.getElementById('btn-entregado').classList.toggle('hidden', !hayItems || cuentaPedida);
+
+            document.querySelectorAll('.btn-borrar-taco').forEach(b => b.addEventListener('click', async () => {
+                await supabaseClient.from('tacos').delete().eq('id', b.dataset.tacoId);
+                cargarPedidoTurno();
+            }));
+            document.querySelectorAll('.btn-borrar-bebida').forEach(b => b.addEventListener('click', async () => {
+                await supabaseClient.from('bebidas').delete().eq('id', b.dataset.bebidaId);
+                cargarPedidoTurno();
+            }));
+        }
+        function resetTacoSel() {
+            tacoSel = { tortilla: 'normal', textura: 'blandita', tipos: [], longanizaEstilo: 'normal', cebolla: true, cilantro: true, verduraAparte: true, cantidad: 1 };
+            stagingTacos = [];
+            document.getElementById('taco-cantidad').textContent = '1';
+            document.getElementById('input-nota-plato').value = '';
+            document.getElementById('lista-staging-tacos').innerHTML = '';
+            document.getElementById('opciones-longaniza').classList.add('hidden');
+
+            document.querySelectorAll('.btn-tortilla').forEach(b => marcarActivo(b, b.dataset.tortilla === 'normal'));
+            document.querySelectorAll('.btn-textura').forEach(b => marcarActivo(b, b.dataset.textura === 'blandita'));
+            document.querySelectorAll('.btn-tipo').forEach(b => marcarActivo(b, false));
+            document.querySelectorAll('.btn-longaniza').forEach(b => marcarActivo(b, b.dataset.longaniza === 'normal'));
+            document.querySelectorAll('.btn-term').forEach(b => marcarActivo(b, true));
+            document.querySelectorAll('.btn-aparte').forEach(b => marcarActivo(b, b.dataset.aparte === 'true'));
+
+            actualizarBotonGuardarPlato();
+        }
+
+        document.getElementById('btn-abrir-taco').addEventListener('click', () => {
+            resetTacoSel();
+            document.getElementById('panel-taco').classList.remove('hidden');
+            document.getElementById('panel-bebida').classList.add('hidden');
+        });
+        document.getElementById('btn-cancelar-plato').addEventListener('click', () => {
+            document.getElementById('panel-taco').classList.add('hidden');
+        });
+
+        document.querySelectorAll('.btn-tortilla').forEach(b => b.addEventListener('click', () => {
+            tacoSel.tortilla = b.dataset.tortilla;
+            document.querySelectorAll('.btn-tortilla').forEach(x => marcarActivo(x, x === b));
+        }));
+        document.querySelectorAll('.btn-textura').forEach(b => b.addEventListener('click', () => {
+            tacoSel.textura = b.dataset.textura;
+            document.querySelectorAll('.btn-textura').forEach(x => marcarActivo(x, x === b));
+        }));
+        document.querySelectorAll('.btn-tipo').forEach(b => b.addEventListener('click', () => {
+            const tipo = b.dataset.tipo;
+            if (tacoSel.tipos.includes(tipo)) {
+                tacoSel.tipos = tacoSel.tipos.filter(t => t !== tipo);
+                marcarActivo(b, false);
+            } else {
+                tacoSel.tipos.push(tipo);
+                marcarActivo(b, true);
+            }
+            document.getElementById('opciones-longaniza').classList.toggle('hidden', !tacoSel.tipos.includes('longaniza'));
+        }));
+        document.querySelectorAll('.btn-longaniza').forEach(b => b.addEventListener('click', () => {
+            tacoSel.longanizaEstilo = b.dataset.longaniza;
+            document.querySelectorAll('.btn-longaniza').forEach(x => marcarActivo(x, x === b));
+        }));
+        document.querySelectorAll('.btn-term').forEach(b => b.addEventListener('click', () => {
+            const term = b.dataset.term;
+            tacoSel[term] = !tacoSel[term];
+            marcarActivo(b, tacoSel[term]);
+        }));
+        document.querySelectorAll('.btn-aparte').forEach(b => b.addEventListener('click', () => {
+            tacoSel.verduraAparte = b.dataset.aparte === 'true';
+            document.querySelectorAll('.btn-aparte').forEach(x => marcarActivo(x, x === b));
+        }));
+
+        document.getElementById('taco-menos').addEventListener('click', () => {
+            if (tacoSel.cantidad > 1) tacoSel.cantidad--;
+            document.getElementById('taco-cantidad').textContent = tacoSel.cantidad;
+        });
+        document.getElementById('taco-mas').addEventListener('click', () => {
+            tacoSel.cantidad++;
+            document.getElementById('taco-cantidad').textContent = tacoSel.cantidad;
+        });
+
+        document.getElementById('btn-agregar-linea-taco').addEventListener('click', () => {
+            if (tacoSel.tipos.length === 0) { alert('Elige al menos un tipo de carne.'); return; }
+
+            const linea = { ...tacoSel, tipos: [...tacoSel.tipos] };
+            stagingTacos.push(linea);
+
+            const div = document.createElement('div');
+            div.className = 'bg-gray-700 rounded-xl px-3 py-2 flex justify-between items-center text-sm';
+            div.innerHTML = `<span>${descripcionTaco({ ...linea, textura_tortilla: linea.textura, longaniza_estilo: linea.longanizaEstilo, verdura_aparte: linea.verduraAparte })}</span>`;
+            const btnX = document.createElement('button');
+            btnX.textContent = '✕';
+            btnX.className = 'text-red-400 ml-2';
+            btnX.addEventListener('click', () => {
+                stagingTacos = stagingTacos.filter(l => l !== linea);
+                div.remove();
+                actualizarBotonGuardarPlato();
+            });
+            div.appendChild(btnX);
+            document.getElementById('lista-staging-tacos').appendChild(div);
+
+            tacoSel.tipos = [];
+            tacoSel.cantidad = 1;
+            document.getElementById('taco-cantidad').textContent = '1';
+            document.querySelectorAll('.btn-tipo').forEach(x => marcarActivo(x, false));
+            document.getElementById('opciones-longaniza').classList.add('hidden');
+
+            actualizarBotonGuardarPlato();
+        });
+
+        function actualizarBotonGuardarPlato() {
+            document.getElementById('btn-guardar-plato').disabled = stagingTacos.length === 0;
+        }
+
+        document.getElementById('btn-guardar-plato').addEventListener('click', async () => {
+            if (stagingTacos.length === 0) return;
+
+            const notaPlato = document.getElementById('input-nota-plato').value.trim() || null;
+
+            const { data: platoNuevo, error: errorPlato } = await supabaseClient.from('platos')
+                .insert({ pedido_id: turnoActual.id, notas: notaPlato })
+                .select().single();
+            if (errorPlato) { alert('Error: ' + errorPlato.message); return; }
+
+            const filas = stagingTacos.map(t => ({
+                plato_id: platoNuevo.id,
+                mesero_id: usuarioId,
+                tortilla: t.tortilla,
+                textura_tortilla: t.textura,
+                tipos: t.tipos,
+                longaniza_estilo: t.tipos.includes('longaniza') ? t.longanizaEstilo : null,
+                cebolla: t.cebolla,
+                cilantro: t.cilantro,
+                verdura_aparte: t.verduraAparte,
+                cantidad: t.cantidad,
+                precio_unitario: precioTaco(t.tortilla),
+                enviado: false,
+                preparado: false
+            }));
+
+            const { error: errorTacos } = await supabaseClient.from('tacos').insert(filas);
+            if (errorTacos) { alert('Error: ' + errorTacos.message); return; }
+
+            document.getElementById('panel-taco').classList.add('hidden');
+            cargarPedidoTurno();
+        });
+        document.getElementById('btn-abrir-bebida').addEventListener('click', () => {
+            resetBebidaSel();
+            document.getElementById('panel-bebida').classList.remove('hidden');
+            document.getElementById('panel-taco').classList.add('hidden');
+        });
+        document.getElementById('btn-cancelar-bebida').addEventListener('click', () => {
+            document.getElementById('panel-bebida').classList.add('hidden');
+        });
+
+        function resetBebidaSel() {
+            bebidaSel = { tipo: null, tamano: null, sabor: null, cantidad: 1 };
+            document.getElementById('bebida-cantidad').textContent = '1';
+            document.getElementById('opciones-tamano').classList.add('hidden');
+            document.getElementById('opciones-sabor').classList.add('hidden');
+            document.querySelectorAll('.btn-bebida-tipo').forEach(b => marcarActivo(b, false));
+            actualizarBotonGuardarBebida();
+        }
+
+        document.querySelectorAll('.btn-bebida-tipo').forEach(b => b.addEventListener('click', () => {
+            bebidaSel.tipo = b.dataset.bebida;
+            bebidaSel.tamano = null;
+            bebidaSel.sabor = null;
+            document.querySelectorAll('.btn-bebida-tipo').forEach(x => marcarActivo(x, x === b));
+
+            const opciones = opcionesBebida[bebidaSel.tipo];
+            const contTamano = document.getElementById('botones-tamano');
+            const contSabor = document.getElementById('botones-sabor');
+            contTamano.innerHTML = '';
+            contSabor.innerHTML = '';
+
+            if (opciones.tamanos) {
+                document.getElementById('opciones-tamano').classList.remove('hidden');
+                opciones.tamanos.forEach(t => {
+                    const btn = document.createElement('button');
+                    btn.textContent = t.label;
+                    btn.className = 'btn-tamano-op bg-gray-700 rounded-xl py-2 text-sm';
+                    btn.addEventListener('click', () => {
+                        bebidaSel.tamano = t.id;
+                        document.querySelectorAll('.btn-tamano-op').forEach(x => marcarActivo(x, x === btn));
+                        if (bebidaSel.tipo === 'refresco') {
+                            contSabor.innerHTML = '';
+                            document.getElementById('opciones-sabor').classList.remove('hidden');
+                            saboresRefresco[t.id].forEach(s => {
+                                const bs = document.createElement('button');
+                                bs.textContent = s;
+                                bs.className = 'btn-sabor-op bg-gray-700 rounded-xl py-2 text-sm';
+                                bs.addEventListener('click', () => {
+                                    bebidaSel.sabor = s;
+                                    document.querySelectorAll('.btn-sabor-op').forEach(x => marcarActivo(x, x === bs));
+                                    actualizarBotonGuardarBebida();
+                                });
+                                contSabor.appendChild(bs);
+                            });
+                        }
+                        actualizarBotonGuardarBebida();
+                    });
+                    contTamano.appendChild(btn);
+                });
+            } else {
+                document.getElementById('opciones-tamano').classList.add('hidden');
+            }
+
+            if (opciones.sabores) {
+                document.getElementById('opciones-sabor').classList.remove('hidden');
+                opciones.sabores.forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.textContent = s.label;
+                    btn.className = 'btn-sabor-op bg-gray-700 rounded-xl py-2 text-sm';
+                    btn.addEventListener('click', () => {
+                        bebidaSel.sabor = s.id;
+                        document.querySelectorAll('.btn-sabor-op').forEach(x => marcarActivo(x, x === btn));
+                        actualizarBotonGuardarBebida();
+                    });
+                    contSabor.appendChild(btn);
+                });
+            } else if (bebidaSel.tipo !== 'refresco') {
+                document.getElementById('opciones-sabor').classList.add('hidden');
+            }
+            actualizarBotonGuardarBebida();
+        }));
+
+        document.getElementById('bebida-menos').addEventListener('click', () => {
+            if (bebidaSel.cantidad > 1) bebidaSel.cantidad--;
+            document.getElementById('bebida-cantidad').textContent = bebidaSel.cantidad;
+        });
+        document.getElementById('bebida-mas').addEventListener('click', () => {
+            bebidaSel.cantidad++;
+            document.getElementById('bebida-cantidad').textContent = bebidaSel.cantidad;
+        });
+
+        function actualizarBotonGuardarBebida() {
+            const opciones = bebidaSel.tipo ? opcionesBebida[bebidaSel.tipo] : null;
+            let listo = !!bebidaSel.tipo;
+            if (opciones && opciones.tamanos && !bebidaSel.tamano) listo = false;
+            if (opciones && opciones.sabores && !bebidaSel.sabor) listo = false;
+            if (bebidaSel.tipo === 'refresco' && bebidaSel.tamano && !bebidaSel.sabor) listo = false;
+            document.getElementById('btn-guardar-bebida').disabled = !listo;
+        }
+
+        document.getElementById('btn-guardar-bebida').addEventListener('click', async () => {
+            const fila = {
+                pedido_id: turnoActual.id,
+                mesero_id: usuarioId,
+                tipo: bebidaSel.tipo,
+                tamano: bebidaSel.tamano,
+                sabor: bebidaSel.sabor,
+                cantidad: bebidaSel.cantidad,
+                precio_unitario: precioBebida(bebidaSel.tipo, bebidaSel.tamano)
+            };
+            const { error } = await supabaseClient.from('bebidas').insert(fila);
+            if (error) { alert('Error: ' + error.message); return; }
+            document.getElementById('panel-bebida').classList.add('hidden');
+            cargarPedidoTurno();
+        });
+
+        // --- Salsa y complementos ---
+        document.querySelectorAll('.btn-salsa').forEach(b => b.addEventListener('click', () => {
+            salsaSel = b.dataset.salsa;
+            document.querySelectorAll('.btn-salsa').forEach(x => marcarActivo(x, x === b));
+        }));
+        document.querySelectorAll('.btn-comp').forEach(b => {
+            marcarActivo(b, true); // complementos vienen activados por default
+            b.addEventListener('click', () => {
+                const comp = b.dataset.comp;
+                complementosSel[comp] = !complementosSel[comp];
+                marcarActivo(b, complementosSel[comp]);
+            });
+        });
+
+        // --- Enviar a cocina ---
+        document.getElementById('btn-enviar-cocina').addEventListener('click', async () => {
+            if (!salsaSel) { alert('Elige la salsa antes de enviar a cocina.'); return; }
+
+            const ahora = new Date().toISOString();
+            const { data: platosDelTurno } = await supabaseClient.from('platos').select('id').eq('pedido_id', turnoActual.id);
+
+            await supabaseClient.from('tacos')
+                .update({ enviado: true, hora_enviado: ahora })
+                .eq('enviado', false)
+                .in('plato_id', (platosDelTurno || []).map(p => p.id));
+
+            const notaComp = document.getElementById('input-nota-complementos').value.trim() || null;
+            await supabaseClient.from('pedidos').update({
+                salsa: salsaSel,
+                complementos: complementosSel,
+                nota_complementos: notaComp
+            }).eq('id', turnoActual.id);
+
+            alert('¡Pedido enviado a cocina!');
+            cargarPedidoTurno();
+        });
+
+        // --- Entregado y cobrado (cierra el turno) ---
+        document.getElementById('btn-entregado').addEventListener('click', async () => {
+            const confirmar = confirm('¿Confirmar que este turno ya fue entregado y cobrado?');
+            if (!confirmar) return;
+
+            const { data: platos } = await supabaseClient.from('platos')
+                .select('*, tacos(*)').eq('pedido_id', turnoActual.id);
+            const { data: bebidas } = await supabaseClient.from('bebidas')
+                .select('*').eq('pedido_id', turnoActual.id);
+
+            let total = 0;
+            const tacosDetalle = [];
+            (platos || []).forEach(p => (p.tacos || []).forEach(t => {
+                total += t.precio_unitario * t.cantidad;
+                tacosDetalle.push({ tipos: t.tipos, cantidad: t.cantidad });
+            }));
+            const bebidasDetalle = (bebidas || []).map(b => {
+                total += b.precio_unitario * b.cantidad;
+                return { tipo: b.tipo, tamano: b.tamano, sabor: b.sabor, cantidad: b.cantidad };
+            });
+
+            const { error: errorVenta } = await supabaseClient.from('ventas').insert({
+                origen: 'para_llevar',
+                mesa_numero: null,
+                mesero_id: usuarioId,
+                mesero_nombre: usuarioNombre,
+                total,
+                tacos_detalle: tacosDetalle,
+                bebidas_detalle: bebidasDetalle
+            });
+            if (errorVenta) { alert('Error al guardar venta: ' + errorVenta.message); return; }
+
+            const platoIds = (platos || []).map(p => p.id);
+            if (platoIds.length > 0) {
+                await supabaseClient.from('tacos').delete().in('plato_id', platoIds);
+                await supabaseClient.from('platos').delete().in('id', platoIds);
+            }
+            await supabaseClient.from('bebidas').delete().eq('pedido_id', turnoActual.id);
+            await supabaseClient.from('pedidos').delete().eq('id', turnoActual.id);
+
+            alert('✅ Turno entregado y cobrado.');
+            mostrarVistaLista();
+        });
+
+        init();
+    </script>
+</body>
+</html>
