@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tacos el Colorado - Para llevar (Cocina)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen overflow-hidden flex flex-col">
+
+    <div class="flex items-center gap-4 px-6 py-3 border-b border-gray-800 shrink-0">
+        <button onclick="window.location.href='cocina-menu.html'" class="text-gray-400 hover:text-white text-3xl">←</button>
+        <h1 class="text-3xl font-extrabold">🚚 Para llevar</h1>
+        <span id="reloj" class="ml-auto text-xl text-gray-400 font-mono"></span>
+    </div>
+
+    <div id="contenedor" class="flex-1 overflow-y-auto p-6"></div>
+
+    <script>
+        const SUPABASE_URL = "https://sscfugtmwhdtjwlrwfzr.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_D8pajZjVyJWO-u7u3OsnKw_RGqKPOBO";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function verificarSesion() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+
+            const { data: perfil } = await supabaseClient
+                .from('perfiles').select('rol').eq('id', user.id).single();
+            if (!perfil || !['cocinero', 'cajero', 'administrador', 'superadministrador'].includes(perfil.rol)) {
+                alert('No tienes permiso para ver esta página.');
+                window.location.href = 'index.html';
+                return;
+            }
+            cargarTurnoActivo();
+            suscribirRealtime();
+        }
+        verificarSesion();
+
+        setInterval(() => {
+            document.getElementById('reloj').textContent = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }, 1000);
+
+        function formatHora(iso) {
+            if (!iso) return '';
+            return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function describirTaco(t) {
+            const extras = [];
+            if (t.tortilla === 'grande') extras.push('tortilla grande');
+            if (t.textura_tortilla !== 'blandita') extras.push(t.textura_tortilla);
+
+            let tipos = [...t.tipos];
+            if (tipos.includes('longaniza') && tipos.includes('suadero')) {
+                tipos = tipos.filter(x => x !== 'longaniza' && x !== 'suadero');
+                tipos.push('campechano');
+            }
+            if (t.tipos.includes('longaniza') && t.longaniza_estilo === 'dorada') extras.push('longaniza dorada');
+
+            if (t.cebolla && t.cilantro) extras.push('con verdura');
+            else if (t.cebolla) extras.push('solo cebolla');
+            else if (t.cilantro) extras.push('solo cilantro');
+            else extras.push('sin verdura');
+
+            extras.push(t.verdura_aparte ? '📦 APARTE' : '🌮 ya en el taco');
+
+            return { nombreTipos: tipos.join(' + '), extraTexto: extras.join(', ') };
+        }async function cargarTurnoActivo() {
+            const cont = document.getElementById('contenedor');
+            const inicioDia = new Date();
+            inicioDia.setHours(0, 0, 0, 0);
+
+            // Buscamos el turno para llevar más antiguo que tenga tacos enviados sin preparar
+            const { data: tacosPendientes } = await supabaseClient
+                .from('tacos').select('*, platos!inner(pedido_id)')
+                .eq('enviado', true).eq('preparado', false)
+                .order('hora_enviado');
+
+            if (!tacosPendientes || tacosPendientes.length === 0) {
+                cont.innerHTML = `<p class="text-center text-gray-500 text-3xl py-20">No hay turnos pendientes 🎉</p>`;
+                return;
+            }
+
+            // Filtramos solo los que pertenecen a pedidos "para llevar" (mesa_numero null)
+            const pedidoIds = [...new Set(tacosPendientes.map(t => t.platos.pedido_id))];
+            const { data: pedidos } = await supabaseClient
+                .from('pedidos').select('*').in('id', pedidoIds).is('mesa_numero', null)
+                .gte('creado_en', inicioDia.toISOString());
+
+            if (!pedidos || pedidos.length === 0) {
+                cont.innerHTML = `<p class="text-center text-gray-500 text-3xl py-20">No hay turnos pendientes 🎉</p>`;
+                return;
+            }
+
+            // El turno con el taco pendiente más viejo va primero
+            const horaMinPorPedido = {};
+            tacosPendientes.forEach(t => {
+                const pid = t.platos.pedido_id;
+                const h = new Date(t.hora_enviado).getTime();
+                if (!horaMinPorPedido[pid] || h < horaMinPorPedido[pid]) horaMinPorPedido[pid] = h;
+            });
+            pedidos.sort((a, b) => (horaMinPorPedido[a.id] || 0) - (horaMinPorPedido[b.id] || 0));
+            const turno = pedidos[0];
+
+            const { data: platos } = await supabaseClient
+                .from('platos').select('*, tacos(*)').eq('pedido_id', turno.id).order('creado_en');
+
+            const platosConPendientes = (platos || []).filter(p => (p.tacos || []).some(t => t.enviado && !t.preparado));
+
+            const comp = turno.complementos || {};
+            const compTexto = Object.entries(comp).filter(([_, v]) => v).map(([k]) => k).join(', ') || 'ninguno';
+            const compFaltantes = Object.entries(comp).filter(([_, v]) => !v).map(([k]) => k);
+
+            const salsaTexto = { roja: '🔴 Salsa roja', verde: '🟢 Salsa verde', ambas: '🔴🟢 Ambas salsas' }[turno.salsa] || 'Sin especificar';
+
+            let html = `
+                <div class="max-w-3xl mx-auto">
+                    <div class="bg-yellow-900/40 border-4 border-yellow-700 rounded-3xl p-5 mb-5">
+                        <p class="text-4xl font-extrabold">🚚 Turno #${turno.turno_numero}</p>
+                        <p class="text-2xl text-yellow-200 mt-1">${turno.nota_cliente || 'Sin nota de identificación'}</p>
+                        <div class="grid grid-cols-2 gap-3 mt-3 text-xl">
+                            <p>${salsaTexto}</p>
+                            <p>Complementos: ${compTexto}</p>
+                        </div>
+                        ${compFaltantes.length > 0 ? `<p class="text-red-300 text-lg mt-2">🚫 SIN: ${compFaltantes.join(', ')}</p>` : ''}
+                        ${turno.nota_complementos ? `<p class="bg-red-900/50 border border-red-700 text-red-200 rounded-xl p-2 mt-2 text-lg">⚠️ ${turno.nota_complementos}</p>` : ''}
+                    </div>
+                    <div class="space-y-4">
+            `;
+
+            platosConPendientes.forEach(plato => {
+                const lineasPendientes = plato.tacos.filter(t => t.enviado && !t.preparado);
+                const lineasHtml = lineasPendientes.map(t => {
+                    const { nombreTipos, extraTexto } = describirTaco(t);
+                    return `<div class="flex items-center gap-4 bg-black/25 rounded-2xl p-3 mb-2">
+                        <span class="text-5xl font-black shrink-0">${t.cantidad}</span>
+                        <div>
+                            <p class="text-2xl font-bold capitalize">${nombreTipos}</p>
+                            <p class="text-lg text-gray-300">${extraTexto}</p>
+                        </div>
+                    </div>`;
+                }).join('');
+                const notaHtml = plato.notas ? `<p class="bg-yellow-900/50 border border-yellow-700 text-yellow-200 rounded-xl p-2 text-lg mb-2">📝 ${plato.notas}</p>` : '';
+
+                html += `<div class="bg-gray-800 border-2 border-gray-700 rounded-3xl p-4">
+                    ${lineasHtml}
+                    ${notaHtml}
+                    <button data-plato-id="${plato.id}" class="btn-preparado w-full mt-2 bg-green-700 hover:bg-green-600 rounded-2xl py-3 text-xl font-extrabold">
+                        ✓ Preparado
+                    </button>
+                </div>`;
+            });
+
+            html += `</div></div>`;
+            cont.innerHTML = html;
+
+            document.querySelectorAll('.btn-preparado').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const platoId = btn.dataset.platoId;
+                    const ahora = new Date().toISOString();
+                    await supabaseClient.from('tacos')
+                        .update({ preparado: true, hora_preparado: ahora })
+                        .eq('plato_id', platoId);
+                });
+            });
+        }function suscribirRealtime() {
+            supabaseClient
+                .channel('domicilio-tacos')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tacos' }, cargarTurnoActivo)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, cargarTurnoActivo)
+                .subscribe();
+        }
+    </script>
+</body>
+</html>
